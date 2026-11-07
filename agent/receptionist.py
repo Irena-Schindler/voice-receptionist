@@ -29,14 +29,19 @@ class Receptionist(Agent):
         return ", ".join(spoken_time(s) for s in slots) or "Keine freien Termine an diesem Tag."
 
     @function_tool
-    async def book(self, context: RunContext, day: str, start: str, service: str, name: str, phone: str) -> str:
-        """Book a slot after the caller confirmed it. start as HH:MM."""
+    async def propose_booking(self, context: RunContext, day: str, start: str, service: str, name: str, phone: str) -> str:
+        """Step 1: validate a booking and read it back to the caller. Books nothing. start as HH:MM."""
         d = parse_day(day)
         try:
             t = datetime.strptime(start, "%H:%M").time()
         except ValueError:
             return "Uhrzeit nicht verstanden."
-        return self.clinic.book(d, t, service, name, phone) if d else "Datum nicht verstanden."
+        return self.clinic.propose(d, t, service, name, phone) if d else "Datum nicht verstanden."
+
+    @function_tool
+    async def confirm_booking(self, context: RunContext) -> str:
+        """Step 2: call ONLY after the caller explicitly said yes to the read-back from propose_booking."""
+        return self.clinic.confirm()
 
     @function_tool
     async def request_callback(self, context: RunContext, name: str, phone: str, topic: str) -> str:

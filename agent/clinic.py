@@ -50,13 +50,33 @@ class Clinic:
             self.booked[(day, s)] = f"{name} {p} {service}"
         return f"Gebucht: {service} am {day:%d.%m.} um {spoken_time(start)}."
 
+    def propose(self, day: date, start: time, service: str, name: str, phone: str) -> str:
+        """Step 1 of 2: validate and read the booking back. Nothing is booked until confirm() is called."""
+        p = normalize_phone(phone)
+        if p is None:
+            return "Die Telefonnummer ist unvollständig. Bitte noch einmal langsam nennen."
+        if start not in self.free_slots(day, service, limit=len(OPENING)):
+            return "Dieser Termin ist leider nicht mehr frei."
+        self.pending = (day, start, service, name, p)
+        digits = " ".join(p.replace("+49", "0"))
+        return (f"Zur Bestätigung: {service} am {day:%d.%m.} um {spoken_time(start)} für {name}, "
+                f"Rückrufnummer {digits}. Ist das richtig?")
+
+    def confirm(self) -> str:
+        """Step 2 of 2: book exactly what was read back, only after the caller said yes."""
+        if not getattr(self, "pending", None):
+            return "Es gibt keinen Termin zum Bestätigen. Bitte zuerst Termin vorschlagen."
+        day, start, service, name, p = self.pending
+        self.pending = None
+        return self.book(day, start, service, name, p)
+
     def callback(self, name: str, phone: str, topic: str) -> str:
         p = normalize_phone(phone)
         if p is None:
             return "Die Telefonnummer ist unvollständig. Bitte noch einmal langsam nennen."
         self.callbacks.append({"name": name, "phone": p, "topic": topic[:200],
                                "at": datetime.now().isoformat(timespec="minutes")})
-        return "Notiert. Wir rufen Sie heute noch zurück."
+        return "Notiert. Wir melden uns innerhalb eines Werktags bei Ihnen."
 
 
 def parse_day(text: str, today: date | None = None) -> date | None:

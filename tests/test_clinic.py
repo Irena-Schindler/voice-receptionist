@@ -43,7 +43,7 @@ def test_parse_day_and_speech():
 
 def test_agent_registers_tools():
     from agent.receptionist import Receptionist
-    assert {t.id for t in Receptionist(Clinic()).tools} == {"find_slots", "book", "request_callback"}
+    assert {t.id for t in Receptionist(Clinic()).tools} == {"find_slots", "propose_booking", "confirm_booking", "request_callback"}
 
 
 def test_long_service_blocks_following_slot():
@@ -51,3 +51,11 @@ def test_long_service_blocks_following_slot():
     assert c.book(d, time(9), "massage", "Max", "0151 2345678").startswith("Gebucht")
     assert time(9, 30) not in c.free_slots(d, "physio", limit=50)
     assert time(16, 30) not in c.free_slots(d, "massage", limit=50)  # would end after closing
+
+
+def test_two_step_booking_books_nothing_before_confirmation():
+    c, d = Clinic(), weekday()
+    msg = c.propose(d, time(11), "physio", "Max", "0151 2345678")
+    assert "Ist das richtig?" in msg and "0 1 5 1" in msg and not c.booked
+    assert c.confirm().startswith("Gebucht") and c.booked
+    assert "keinen Termin" in c.confirm()  # confirmation cannot be replayed
