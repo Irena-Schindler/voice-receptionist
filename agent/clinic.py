@@ -27,10 +27,17 @@ class Clinic:
     booked: dict[tuple[date, time], str] = field(default_factory=dict)
     callbacks: list[dict] = field(default_factory=list)
 
+    def _needed(self, start: time, service: str) -> list[time]:
+        """All half-hour slots a service occupies, e.g. a 60-min massage at 9:00 needs 9:00 and 9:30."""
+        i = OPENING.index(start)
+        return OPENING[i:i + SERVICES[service] // 30]
+
     def free_slots(self, day: date, service: str, limit: int = 3) -> list[time]:
         if service not in SERVICES or day.weekday() >= 5 or day < date.today():
             return []
-        free = [t for t in OPENING if (day, t) not in self.booked]
+        n = SERVICES[service] // 30
+        free = [t for t in OPENING
+                if len(self._needed(t, service)) == n and all((day, s) not in self.booked for s in self._needed(t, service))]
         return free[:limit]
 
     def book(self, day: date, start: time, service: str, name: str, phone: str) -> str:
@@ -39,7 +46,8 @@ class Clinic:
             return "Die Telefonnummer ist unvollständig. Bitte noch einmal langsam nennen."
         if start not in self.free_slots(day, service, limit=len(OPENING)):
             return "Dieser Termin ist leider nicht mehr frei."
-        self.booked[(day, start)] = f"{name} {p} {service}"
+        for s in self._needed(start, service):
+            self.booked[(day, s)] = f"{name} {p} {service}"
         return f"Gebucht: {service} am {day:%d.%m.} um {spoken_time(start)}."
 
     def callback(self, name: str, phone: str, topic: str) -> str:

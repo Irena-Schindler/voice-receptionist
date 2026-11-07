@@ -44,3 +44,10 @@ def test_parse_day_and_speech():
 def test_agent_registers_tools():
     from agent.receptionist import Receptionist
     assert {t.id for t in Receptionist(Clinic()).tools} == {"find_slots", "book", "request_callback"}
+
+
+def test_long_service_blocks_following_slot():
+    c, d = Clinic(), weekday()
+    assert c.book(d, time(9), "massage", "Max", "0151 2345678").startswith("Gebucht")
+    assert time(9, 30) not in c.free_slots(d, "physio", limit=50)
+    assert time(16, 30) not in c.free_slots(d, "massage", limit=50)  # would end after closing
